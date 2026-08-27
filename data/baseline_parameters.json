@@ -17,6 +17,35 @@
     "trailing_30d_depreciation_pct": 1.2,
     "_note": "Kepmen 245/2022 specifies a 2-month-lagged trailing AVERAGE JISDOR rate (25th of month-2 through 24th of month-1) as the official FX input, not spot. We use the single baseline/spot rate here -- a real implementation would need a daily JISDOR history to compute that trailing average."
   },
+  "historical_benchmarks": {
+    "_comment": "REAL monthly values, sourced and checked 2026-08-27. icp_usd_bbl: Kementerian ESDM monthly press releases (esdm.go.id/migas.esdm.go.id media-center archive) -- each month is an official Kepmen/Kepdirjen announcement. brent_usd_bbl: aggregated from Statista/EIA public references. Months not listed were not found in the time available for this build -- the chart draws a straight connector across those gaps (standard practice for monthly economic series), not a fabricated point. mops92/95/97_usd_bbl and mops_gasoil(_cn51)_usd_bbl have NO free historical series (Platts/Argus is subscription-only) -- intentionally absent here; the app shows only their current baseline value as a flat reference line, not a trend.",
+    "icp_usd_bbl": [
+      {"month": "2025-08", "value": 66.07},
+      {"month": "2025-09", "value": 66.81},
+      {"month": "2025-10", "value": 63.62},
+      {"month": "2025-11", "value": 62.83},
+      {"month": "2025-12", "value": 61.10},
+      {"month": "2026-01", "value": 64.41},
+      {"month": "2026-02", "value": 68.79},
+      {"month": "2026-03", "value": 102.26},
+      {"month": "2026-05", "value": 106.56},
+      {"month": "2026-06", "value": 83.45},
+      {"month": "2026-07", "value": 81.68},
+      {"month": "2026-08", "value": 81.75}
+    ],
+    "brent_usd_bbl": [
+      {"month": "2025-08", "value": 67.87},
+      {"month": "2025-12", "value": 63.00},
+      {"month": "2026-01", "value": 64.22},
+      {"month": "2026-02", "value": 69.21},
+      {"month": "2026-03", "value": 99.37},
+      {"month": "2026-04", "value": 102.89},
+      {"month": "2026-05", "value": 104.23},
+      {"month": "2026-06", "value": 84.59},
+      {"month": "2026-07", "value": 83.59},
+      {"month": "2026-08", "value": 84.80}
+    ]
+  },
   "esdm_formula": {
     "regulation": "Kepmen ESDM No. 245.K/MG.01/MEM.M/2022 (amends Kepmen No. 62.K/12/MEM/2020) -- Formula Harga Dasar dalam Perhitungan Harga Jual Eceran Jenis BBM Umum Jenis Bensin dan Minyak Solar",
     "source_url": "https://jdih.esdm.go.id/dokumen/view?id=2307",

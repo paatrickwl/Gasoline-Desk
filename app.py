@@ -191,6 +191,57 @@ def _tax_waterfall_chart(pricing: dict) -> go.Figure:
     return _bain_layout(fig, height=260)
 
 
+def _build_benchmark_history_chart(baseline: dict, selected_benchmark_key: str) -> go.Figure:
+    """All 7 benchmarks on one chart: ICP and Brent get their REAL monthly
+    history (see historical_benchmarks in baseline_parameters.json, cited
+    ESDM/public sources); MOPS 92/95/97 and Gasoil CN48/CN51 have no free
+    historical series (Platts/Argus is paywalled) so they're drawn as a
+    flat line at their current baseline value across the same window --
+    honest about which lines are trend data and which are a snapshot.
+    Every line is gray except the fuel's mandated benchmark, which is red."""
+    history = baseline.get("historical_benchmarks", {})
+    icp_series = history.get("icp_usd_bbl", [])
+    months = [p["month"] for p in icp_series] or ["2025-08", "2026-08"]
+    x_start, x_end = months[0], months[-1]
+
+    fig = go.Figure()
+    for key, label in BENCHMARK_LABELS.items():
+        if key in CRUDE_BENCHMARK_KEYS and key in history:
+            series = history[key]
+            x = [p["month"] for p in series]
+            y = [p["value"] for p in series]
+        else:
+            # No historical series for this benchmark -- flat reference at
+            # today's baseline value, spanning the same visual window.
+            x = [x_start, x_end]
+            y = [baseline["benchmarks"].get(key)] * 2
+
+        is_selected = key == selected_benchmark_key
+        fig.add_trace(go.Scatter(
+            x=x, y=y, mode="lines",
+            name=label,
+            line=dict(
+                color=RED if is_selected else GRAY_LINE,
+                width=3 if is_selected else 1.5,
+                dash="solid" if (key in CRUDE_BENCHMARK_KEYS) else "dot",
+            ),
+            opacity=1.0 if is_selected else 0.8,
+        ))
+        fig.add_annotation(
+            x=x[-1], y=y[-1], text=label, showarrow=False, xanchor="left", xshift=6,
+            font=dict(size=11, color=RED if is_selected else GRAY_MID, family="Inter"),
+        )
+
+    fig.update_layout(
+        height=280, plot_bgcolor="white", paper_bgcolor="white", showlegend=False,
+        margin=dict(l=10, r=90, t=10, b=10),
+        font=dict(family="Inter, sans-serif", color=BLACK, size=12),
+        xaxis=dict(showgrid=False, tickfont=dict(size=11)),
+        yaxis=dict(showgrid=True, gridcolor="#F0F0F0", title="USD/bbl", tickfont=dict(size=11)),
+    )
+    return fig
+
+
 def _build_gap_treemap(engine: PricingEngine, fuels: dict, live_fuel_data: Optional[dict] = None,
                         province: str = "Prov. DKI Jakarta") -> go.Figure:
     """Portfolio-wide view: every fuel in the catalog, grouped by brand, sized
@@ -382,19 +433,26 @@ def page_subsidy_gap_tracker():
         any_fuel_prices = next(iter(live_fuel_data["pertamina"]["prices_by_province"].values()), {})
         provinces = sorted(any_fuel_prices.keys())
 
-    # -- Control bar. Benchmark stays a horizontal radio (5 options fit one
-    # row); Fuel is a brand-grouped dropdown -- 14+ SKUs across 4 brands
-    # won't fit as horizontal pills without wrapping badly. ------------------
+    # -- Control bar. No benchmark selector -- Kepmen ESDM 245/2022 assigns
+    # each fuel's regulatory benchmark by RON/CN class (see mops_benchmark_key
+    # in the catalog), so it's not a free choice; auto-applying the correct
+    # one removes a control that could only ever produce a wrong reading. ---
     ctrl1, ctrl2 = st.columns([5, 3])
-    with ctrl1:
-        benchmark_key = st.radio(
-            "Benchmark", list(BENCHMARK_LABELS.keys()),
-            format_func=lambda k: BENCHMARK_LABELS[k], horizontal=True, index=0,
-        )
     with ctrl2:
         retail_key = st.selectbox(
             "Fuel", list(fuels.keys()),
             format_func=lambda k: f"{fuels[k]['brand']} — {fuels[k]['label']}", index=0,
+        )
+
+    fuel_meta = fuels[retail_key]
+    benchmark_key = fuel_meta["mops_benchmark_key"]
+
+    with ctrl1:
+        st.markdown(
+            f"<div style='font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:{GRAY_MID};margin-bottom:2px;'>Benchmark (auto, per Kepmen ESDM 245/2022)</div>"
+            f"<div style='font-size:15px;font-weight:600;color:#1A1A1A;padding-top:6px;'>{BENCHMARK_LABELS.get(benchmark_key, benchmark_key)} "
+            f"<span style='font-size:12px;font-weight:500;color:{GRAY_MID};'>&mdash; RON/CN class: {fuel_meta.get('regulatory_class', 'n/a')}</span></div>",
+            unsafe_allow_html=True,
         )
 
     province = "Prov. DKI Jakarta"
@@ -422,12 +480,20 @@ def page_subsidy_gap_tracker():
         st.info("No retail price mapped for this fuel selection.")
         return
 
-    if not result.get("is_regulation_compliant_benchmark", True):
-        st.info(
-            f"ℹ️ {fuel_label} is regulated on **{BENCHMARK_LABELS.get(result['mandated_benchmark_key'], result['mandated_benchmark_key'])}** "
-            f"per Kepmen ESDM 245/2022 (RON/CN class: {result.get('regulatory_class', 'n/a')}) -- you've selected a different benchmark, "
-            f"so this is a what-if scenario, not the regulation-compliant cost reading."
-        )
+    # -- Benchmark history: all 7 benchmarks, this fuel's mandated one in red.
+    st.markdown(
+        "<div style='font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin:10px 0 4px 0;'>Benchmark Price History</div>",
+        unsafe_allow_html=True,
+    )
+    st.plotly_chart(
+        _build_benchmark_history_chart(engine.baseline, benchmark_key),
+        use_container_width=True, config={"displayModeBar": False},
+    )
+    st.caption(
+        "ICP & Brent: real monthly values, Kementerian ESDM / public market data (straight line across any month gap in the source). "
+        "MOPS 92/95/97 and Gasoil CN48/CN51: no free historical series exists (Platts/Argus is subscription-only) -- "
+        "shown as a flat line at the current baseline value only, not a trend."
+    )
 
     margin_pct = (gap["subsidy_gap_idr_liter"] / gap["market_clearing_price_idr_liter"]) * 100
     copy = _build_insight_copy(fuel_label, gap, margin_pct, is_administered)
@@ -771,18 +837,18 @@ def page_margin_optimizer():
     fuels = get_fuel_catalog()
     commercial_fuels = {k: v for k, v in fuels.items() if not v.get("is_administered", False)}
 
-    ctrl1, ctrl2 = st.columns([5, 3])
-    with ctrl1:
-        benchmark_key = st.radio(
-            "Benchmark", list(BENCHMARK_LABELS.keys()),
-            format_func=lambda k: BENCHMARK_LABELS[k], horizontal=True, index=0, key="margin_benchmark",
-        )
-    with ctrl2:
-        fuel_key = st.selectbox(
-            "Fuel (commercial only)", list(commercial_fuels.keys()),
-            format_func=lambda k: f"{commercial_fuels[k]['brand']} — {commercial_fuels[k]['label']}",
-            index=0, key="margin_fuel",
-        )
+    fuel_key = st.selectbox(
+        "Fuel (commercial only)", list(commercial_fuels.keys()),
+        format_func=lambda k: f"{commercial_fuels[k]['brand']} — {commercial_fuels[k]['label']}",
+        index=0, key="margin_fuel",
+    )
+    # Benchmark is auto-derived from the fuel's RON/CN regulatory class, not
+    # a free choice -- see the Subsidy Gap Tracker page for the same logic.
+    benchmark_key = commercial_fuels[fuel_key]["mops_benchmark_key"]
+    st.caption(
+        f"COGS benchmark: {BENCHMARK_LABELS.get(benchmark_key, benchmark_key)} "
+        f"(auto, per Kepmen ESDM 245/2022 -- RON/CN class {commercial_fuels[fuel_key].get('regulatory_class', 'n/a')})"
+    )
 
     # -- Real-data overrides: replace the illustrative assumptions whenever
     # the user has actual numbers, without touching the baseline JSON. -----
