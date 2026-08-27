@@ -105,8 +105,14 @@ def inject_bain_style() -> None:
         .block-container {{ padding-top: 1.2rem !important; padding-bottom: 1rem !important; max-width: 100% !important; }}
         div[data-testid="stVerticalBlock"] {{ gap: 0.35rem; }}
 
-        /* Sidebar ~25% narrower than Streamlit's default 21rem */
-        section[data-testid="stSidebar"] {{ width: 252px !important; min-width: 252px !important; max-width: 252px !important; }}
+        /* Sidebar ~25% narrower than Streamlit's default 21rem, but with
+        looser vertical rhythm than the main content -- the tight 0.35rem
+        gap above is right for the dense main dashboard, not for a list of
+        distinct status lines that need visual breathing room. */
+        section[data-testid="stSidebar"] {{ width: 268px !important; min-width: 268px !important; max-width: 268px !important; }}
+        section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {{ gap: 0.85rem; }}
+        section[data-testid="stSidebar"] .stCaption p {{ line-height: 1.5; margin-bottom: 0; }}
+        section[data-testid="stSidebar"] hr {{ margin: 0.4rem 0; }}
 
         </style>
         """,
@@ -347,8 +353,6 @@ def _build_insight_copy(fuel_label: str, gap: dict, margin_pct: float, is_admini
 
 
 def page_subsidy_gap_tracker():
-    inject_bain_style()
-
     try:
         engine = get_pricing_engine()
     except Exception as e:
@@ -994,6 +998,8 @@ def page_osint_simulation_feed():
 
 
 def main():
+    inject_bain_style()  # applies to sidebar + every page, not just Subsidy Gap Tracker
+
     st.sidebar.markdown(
         "<div style='font-size:18px;font-weight:700;line-height:1.25;color:#1A1A1A;'>"
         "Indonesia Energy Intelligence Desk</div>",
@@ -1006,13 +1012,24 @@ def main():
     )
 
     st.sidebar.divider()
-    st.sidebar.markdown("**Desk status**")
+    st.sidebar.markdown(
+        "<div style='font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8C8C8C;margin-bottom:6px;'>Desk status</div>",
+        unsafe_allow_html=True,
+    )
+
     try:
         baseline = get_pricing_engine().baseline
-        st.sidebar.caption(f"Baseline as of {baseline.get('as_of', 'n/a')}")
-        st.sidebar.caption(f"JISDOR: Rp {baseline['fx']['jisdor_idr_usd']:,.0f}/USD")
-        st.sidebar.caption(f"ICP: {baseline['benchmarks']['icp_usd_bbl']:.2f} USD/bbl")
-        st.sidebar.caption("⚠️ Benchmark/FX above are static -- no free real-time ICP/JISDOR feed exists.")
+        st.sidebar.markdown(
+            f"""
+            <div style='background:#F7F7F7;border-radius:6px;padding:10px 12px;font-size:12px;line-height:1.7;color:#252525;'>
+                Baseline as of {baseline.get('as_of', 'n/a')}<br>
+                JISDOR: Rp {baseline['fx']['jisdor_idr_usd']:,.0f}/USD<br>
+                ICP: {baseline['benchmarks']['icp_usd_bbl']:.2f} USD/bbl
+            </div>
+            <div style='font-size:11px;color:#8C8C8C;margin-top:4px;'>⚠️ Static — no free real-time ICP/JISDOR feed exists.</div>
+            """,
+            unsafe_allow_html=True,
+        )
     except Exception:
         st.sidebar.caption("Baseline unavailable")
 
@@ -1021,15 +1038,27 @@ def main():
         n_pertamina = len(live_fuel_data["pertamina"]["prices_by_province"]) if live_fuel_data.get("pertamina") else 0
         n_shell = len(live_fuel_data["shell"]["prices"]) if live_fuel_data.get("shell") else 0
         n_news = len(live_fuel_data["news_whitelist"]["prices"]) if live_fuel_data.get("news_whitelist") else 0
-        st.sidebar.caption(f"🟢 Live retail prices: {n_pertamina} Pertamina + {n_shell} Shell + {n_news} BP-AKR/Vivo (via news)")
-        st.sidebar.caption(f"Fetched {live_fuel_data['fetched_at'][:16].replace('T', ' ')} UTC")
+        fetched_label = live_fuel_data["fetched_at"][:16].replace("T", " ")
+        st.sidebar.markdown(
+            f"""
+            <div style='background:#F7F7F7;border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;line-height:1.7;color:#252525;'>
+                🟢 Live retail prices<br>
+                {n_pertamina} Pertamina + {n_shell} Shell + {n_news} BP-AKR/Vivo<br>
+                <span style='color:#8C8C8C;'>Fetched {fetched_label} UTC</span>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
     except Exception:
-        st.sidebar.caption("🟠 Live retail prices unavailable -- using baseline placeholders")
+        st.sidebar.caption("🟠 Live retail prices unavailable — using baseline placeholders")
+
     st.sidebar.divider()
-    st.sidebar.caption(
-        "Layer 1: Claude data/logic  \n"
-        "Layer 2: OSINT signal parser  \n"
-        "Layer 3: Multi-agent swarm sim"
+    st.sidebar.markdown(
+        "<div style='font-size:12px;line-height:1.9;color:#4D4D4D;'>"
+        "<b>Layer 1</b> — Claude data/logic<br>"
+        "<b>Layer 2</b> — OSINT signal parser<br>"
+        "<b>Layer 3</b> — Multi-agent swarm sim</div>",
+        unsafe_allow_html=True,
     )
 
     if page == "Subsidy Gap Tracker":
