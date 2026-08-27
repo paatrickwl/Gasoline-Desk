@@ -1,0 +1,77 @@
+{
+  "_comment": "Static fallback baseline. Used whenever live feeds fail, latency-out, or return malformed data. All prices USD unless noted.",
+  "as_of": "2026-08-01",
+  "benchmarks": {
+    "brent_usd_bbl": 82.40,
+    "icp_usd_bbl": 81.75,
+    "mops92_usd_bbl": 95.30,
+    "mops95_usd_bbl": 98.10,
+    "mops97_usd_bbl": 100.90,
+    "mops_gasoil_usd_bbl": 99.85,
+    "mops_gasoil_cn51_usd_bbl": 101.35,
+    "_mops97_note": "ESTIMATED, not a real quoted benchmark we have a feed for -- linearly extrapolated from the mops92/mops95 spread (~0.93 USD/bbl per RON step) since Kepmen 245/2022 requires Gasoline 97 specifically for the RON98 bracket. Replace with a real MOPS/Argus Gasoline 97 quote when available.",
+    "_mops_gasoil_cn51_note": "ESTIMATED: mops_gasoil_usd_bbl (0.25% sulfur, CN48 bracket) plus a ~1.5% illustrative premium for the ultra-low-sulfur 0.005% grade (CN51 bracket) required for premium diesel (Dexlite, Pertamina Dex, and equivalent competitor premium diesel). Replace with a real quoted differential when available."
+  },
+  "fx": {
+    "jisdor_idr_usd": 15850,
+    "trailing_30d_depreciation_pct": 1.2,
+    "_note": "Kepmen 245/2022 specifies a 2-month-lagged trailing AVERAGE JISDOR rate (25th of month-2 through 24th of month-1) as the official FX input, not spot. We use the single baseline/spot rate here -- a real implementation would need a daily JISDOR history to compute that trailing average."
+  },
+  "esdm_formula": {
+    "regulation": "Kepmen ESDM No. 245.K/MG.01/MEM.M/2022 (amends Kepmen No. 62.K/12/MEM/2020) -- Formula Harga Dasar dalam Perhitungan Harga Jual Eceran Jenis BBM Umum Jenis Bensin dan Minyak Solar",
+    "source_url": "https://jdih.esdm.go.id/dokumen/view?id=2307",
+    "checked_as_of": "2026-08-26",
+    "scope_note": "Despite 'Umum' sounding generic, this Kepmen explicitly governs ALL retail operators selling non-subsidized fuel through 'Stasiun Pengisian Bahan Bakar Umum' -- Pertamina, Shell, BP-AKR, Vivo alike, not Pertamina-only. It covers the wholesale 'Harga Dasar Tertinggi' (highest base price) ceiling only; PPN and PBBKB are layered on top separately under different regulations (see tax_stack). It does NOT cover Pertalite/Solar Subsidi's subsidized-fuel compensation scheme (a separate BBM Penugasan/PSO regulation we have not sourced) -- applying this formula to those two is this engine's approximation for the underlying cost basis, not a verified reading of that separate scheme.",
+    "formula_note": "Harga Dasar Tertinggi = (MOPS_or_Argus_IDR_per_liter + Konstanta) / 0.9; Margin = (10/90) x (MOPS_IDR_per_liter + Konstanta). MOPS value is the selected grade's published USD/bbl times a RON/CN-specific percentage (see each fuel's mops_pct), converted to Rp/L via the official bbl_to_liter (159) and JISDOR.",
+    "konstanta_idr_liter_low": 1800,
+    "konstanta_idr_liter_low_applies_to": "Gasoline below RON95 (RON89/90/92), Solar CN48",
+    "konstanta_idr_liter_high": 2000,
+    "konstanta_idr_liter_high_applies_to": "Gasoline RON95/RON98, Solar CN51",
+    "margin_fraction": 0.111111111,
+    "bbl_to_liter_official": 159
+  },
+  "tax_stack": {
+    "ppn_pct": 12.0,
+    "pbbkb_pct": 10.0,
+    "_ppn_note": "12% -- current general VAT rate applied to non-subsidized BBM (raised from 11% under UU HPP). Source: pajakku.com, checked 2026-08-26. Subsidized fuel (Solar Subsidi) is VAT-exempt per the same source -- engine.py should special-case this, not apply 12% to it.",
+    "_pbbkb_note": "10% -- DKI Jakarta Perda No. 1/2024 rate for GENERAL (private) vehicles; public-transport fuel gets a 50% discount (5%). PBBKB is a PROVINCIAL tax that varies by region (typically 5-10%) -- this is a single-region placeholder (DKI Jakarta), not a national constant. A full implementation needs a per-province PBBKB table, which we do not have yet. DPP (tax base) for PBBKB is the pre-PPN value per the same source.",
+    "_ordering_note": "This engine applies PBBKB on the ESDM base price, then PPN on the PBBKB-inclusive subtotal. This ordering is our best-effort reading of the two DPP definitions found during research (PBBKB: 'nilai jual sebelum PPN'; PPN: 'harga jual eceran'), not verified against one unified implementing rule -- treat as a reasonable estimate, not a certified tax computation."
+  },
+  "_fuels_comment": "Illustrative baseline RETAIL prices (price_idr_liter), approximating known public price ranges as of write time -- NOT scraped live, treat as placeholder until replaced with a real Pertamina/MyPertamina/competitor price feed (fuel_price_scraper.py supplies live values at runtime; these are only the fallback). is_administered=true means government-set/subsidized (Pertalite, Solar Subsidi) -- excluded from margin/profit optimization by design. regulatory_class/mops_pct/mops_benchmark_key/konstanta_idr_liter feed the ESDM Harga Dasar formula (esdm_formula above) for the COST side -- independent of price_idr_liter, which is the observed retail/administered price. octane_class groups fuels that compete head-to-head across brands for the margin optimizer's competitor-ceiling logic. demand_elasticity and wtp_ceiling_multiplier are ILLUSTRATIVE ASSUMPTIONS (not measured from real consumer data).",
+  "fuels": {
+    "pertalite_ron90":     {"label": "Pertalite RON90",        "brand": "Pertamina", "price_idr_liter": 10000, "is_administered": true,  "benchmark_key": "mops92_usd_bbl", "octane_class": "RON90", "regulatory_class": "RON90", "mops_pct": 99.21, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800},
+    "pertamax_ron92":      {"label": "Pertamax RON92",         "brand": "Pertamina", "price_idr_liter": 12950, "is_administered": false, "benchmark_key": "mops92_usd_bbl", "octane_class": "RON92", "regulatory_class": "RON92", "mops_pct": 100.0, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800, "demand_elasticity": -1.6, "wtp_ceiling_multiplier": 1.10},
+    "pertamax_turbo_ron98":{"label": "Pertamax Turbo RON98",   "brand": "Pertamina", "price_idr_liter": 13750, "is_administered": false, "benchmark_key": "mops97_usd_bbl", "octane_class": "RON98", "regulatory_class": "RON98", "mops_pct": 101.0, "mops_benchmark_key": "mops97_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -0.9, "wtp_ceiling_multiplier": 1.15},
+    "pertamax_green95":    {"label": "Pertamax Green 95",      "brand": "Pertamina", "price_idr_liter": 13250, "is_administered": false, "benchmark_key": "mops95_usd_bbl", "octane_class": "RON95", "regulatory_class": "RON95", "mops_pct": 100.0, "mops_benchmark_key": "mops95_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -1.1, "wtp_ceiling_multiplier": 1.12},
+    "dexlite":             {"label": "Dexlite",                "brand": "Pertamina", "price_idr_liter": 13400, "is_administered": false, "benchmark_key": "mops_gasoil_cn51_usd_bbl", "octane_class": "Diesel-Commercial", "regulatory_class": "CN51", "mops_pct": 100.0, "mops_benchmark_key": "mops_gasoil_cn51_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -1.3, "wtp_ceiling_multiplier": 1.10},
+    "pertamina_dex":       {"label": "Pertamina Dex",          "brand": "Pertamina", "price_idr_liter": 13800, "is_administered": false, "benchmark_key": "mops_gasoil_cn51_usd_bbl", "octane_class": "Diesel-Premium", "regulatory_class": "CN51", "mops_pct": 100.0, "mops_benchmark_key": "mops_gasoil_cn51_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -0.9, "wtp_ceiling_multiplier": 1.13},
+    "solar_subsidi":       {"label": "Solar Subsidi",          "brand": "Pertamina", "price_idr_liter": 6800,  "is_administered": true,  "benchmark_key": "mops_gasoil_usd_bbl", "octane_class": "Diesel-Subsidized", "regulatory_class": "CN48", "mops_pct": 100.0, "mops_benchmark_key": "mops_gasoil_usd_bbl", "konstanta_idr_liter": 1800, "ppn_exempt": true, "_regulatory_note": "Cost basis approximated via the BBM Umum CN48 formula -- Solar Subsidi's actual subsidy/kompensasi scheme is separate legislation (BBM Penugasan/PSO) we have not sourced. VAT-exempt per pajakku.com."},
+    "shell_super_ron92":   {"label": "Super RON92",            "brand": "Shell",     "price_idr_liter": 13020, "is_administered": false, "benchmark_key": "mops92_usd_bbl", "octane_class": "RON92", "regulatory_class": "RON92", "mops_pct": 100.0, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800, "demand_elasticity": -1.5, "wtp_ceiling_multiplier": 1.10},
+    "shell_vpower_ron95":  {"label": "V-Power RON95",          "brand": "Shell",     "price_idr_liter": 13970, "is_administered": false, "benchmark_key": "mops95_usd_bbl", "octane_class": "RON95", "regulatory_class": "RON95", "mops_pct": 100.0, "mops_benchmark_key": "mops95_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -1.0, "wtp_ceiling_multiplier": 1.12},
+    "shell_vpower_diesel": {"label": "V-Power Diesel",         "brand": "Shell",     "price_idr_liter": 13840, "is_administered": false, "benchmark_key": "mops_gasoil_cn51_usd_bbl", "octane_class": "Diesel-Premium", "regulatory_class": "CN51", "mops_pct": 100.0, "mops_benchmark_key": "mops_gasoil_cn51_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -0.9, "wtp_ceiling_multiplier": 1.13},
+    "bp_92_ron92":         {"label": "BP 92 RON92",            "brand": "BP-AKR",    "price_idr_liter": 13070, "is_administered": false, "benchmark_key": "mops92_usd_bbl", "octane_class": "RON92", "regulatory_class": "RON92", "mops_pct": 100.0, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800, "demand_elasticity": -1.5, "wtp_ceiling_multiplier": 1.10},
+    "bp_ultimate_ron95":   {"label": "BP Ultimate RON95",      "brand": "BP-AKR",    "price_idr_liter": 13910, "is_administered": false, "benchmark_key": "mops95_usd_bbl", "octane_class": "RON95", "regulatory_class": "RON95", "mops_pct": 100.0, "mops_benchmark_key": "mops95_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -1.0, "wtp_ceiling_multiplier": 1.12},
+    "vivo_revvo90":        {"label": "Revvo 90",               "brand": "Vivo",      "price_idr_liter": 12040, "is_administered": false, "benchmark_key": "mops92_usd_bbl", "octane_class": "RON90-Commercial", "regulatory_class": "RON90", "mops_pct": 99.21, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800, "demand_elasticity": -1.7, "wtp_ceiling_multiplier": 1.08},
+    "vivo_revvo92":        {"label": "Revvo 92",               "brand": "Vivo",      "price_idr_liter": 12900, "is_administered": false, "benchmark_key": "mops92_usd_bbl", "octane_class": "RON92", "regulatory_class": "RON92", "mops_pct": 100.0, "mops_benchmark_key": "mops92_usd_bbl", "konstanta_idr_liter": 1800, "demand_elasticity": -1.6, "wtp_ceiling_multiplier": 1.10},
+    "vivo_revvo95":        {"label": "Revvo 95",               "brand": "Vivo",      "price_idr_liter": 13850, "is_administered": false, "benchmark_key": "mops95_usd_bbl", "octane_class": "RON95", "regulatory_class": "RON95", "mops_pct": 100.0, "mops_benchmark_key": "mops95_usd_bbl", "konstanta_idr_liter": 2000, "demand_elasticity": -1.1, "wtp_ceiling_multiplier": 1.12}
+  },
+  "conversion": {
+    "bbl_to_liter": 159.0,
+    "_note": "159 is the official conversion per Kepmen 245/2022 (rounded); 158.987 is the more precise industry-standard figure. Using the official rounded value now for regulation-consistency."
+  },
+  "import_ratios": {
+    "crude_import_share_pct": 62,
+    "refined_product_import_share_pct": 34
+  },
+  "storage_capacity_days": {
+    "national_strategic_reserve": 21,
+    "pertamina_operational": 18
+  },
+  "logistics_choke_points": ["Malacca Strait", "Sunda Strait", "Lombok Strait", "Hormuz Strait"],
+  "agent_baseline_behavior": {
+    "refiner_margin_floor_usd_bbl": 4.5,
+    "trader_risk_appetite": 0.5,
+    "consumer_demand_elasticity": -0.3,
+    "policymaker_subsidy_tolerance_idr_trillion": 350
+  }
+}
